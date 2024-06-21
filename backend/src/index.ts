@@ -288,6 +288,38 @@ app.put("/update-note-pinned/:noteId", authenticationUtilities.authenticateToken
 
 // Queries customizadas
 
+// Buscar notas
+app.get("/search-notes/", authenticationUtilities.authenticateToken, async (req: AuthenticatedRequest, res: Response) => {
+  const { query } = req.query;
+  const { user } = req.user;
+
+  if (typeof query !== 'string') {
+    return res.status(400).json({ error: true, message: "Search query is required" });
+  }
+
+  try {
+    const matchingNotes = await noteModel.find({ 
+      userId:  user._id, 
+      $or: [
+        { title: { $regex: new RegExp(query, "i") } },
+        { content: { $regex: new RegExp(query, "i") } }
+      ], 
+    })
+    
+    return res.json({
+      error: false,
+      notes: matchingNotes,
+      message: "Notes retrieved successfully",
+    });
+
+  } catch (error) {
+    return res.status(500).json({
+      error: true,
+      message: "Internal Server Error",
+    });
+  }
+});
+
 // Buscar queries por tag
 app.get("/notes-by-tag/:tag", authenticationUtilities.authenticateToken, async (req: AuthenticatedRequest, res: Response) => {
   const tag = req.params.tag;
@@ -331,34 +363,6 @@ app.get("/notes-by-date-range", authenticationUtilities.authenticateToken, async
       error: false,
       notes,
       message: "Notes retrieved successfully",
-    });
-  } catch (error) {
-    return res.status(500).json({
-      error: true,
-      message: "Internal Server Error",
-    });
-  }
-});
-
-// Buscar notas por titulo ou conteudo
-app.get("/search-notes", authenticationUtilities.authenticateToken, async (req: AuthenticatedRequest, res: Response) => {
-  const { user } = req.user;
-  const { searchTerm } = req.query; // Get search term from query parameter
-
-  if (!searchTerm || typeof searchTerm !== 'string') {
-    return res.status(400).json({ error: true, message: "Search term is required and must be a string" });
-  }
-
-  try {
-    const notes = await noteModel.find({
-      userId: user._id,
-      $text: { $search: searchTerm }, // Use text search index
-    }).sort({ isPinned: -1 });
-
-    return res.json({
-      error: false,
-      notes,
-      message: "Search results retrieved successfully",
     });
   } catch (error) {
     return res.status(500).json({
